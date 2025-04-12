@@ -403,9 +403,8 @@ export class DatabaseStorage implements IStorage {
   // API Key methods
   async generateApiKeyString(): Promise<string> {
     // একটি ইউনিক API কী জেনারেট করে
-    const crypto = require('crypto');
+    const apiKey = randomBytes(32).toString('hex');
     // 32 বাইট (64 হেক্স ক্যারেক্টার) রেন্ডম স্ট্রিং জেনারেট করা
-    const apiKey = crypto.randomBytes(32).toString('hex');
     return apiKey;
   }
 
