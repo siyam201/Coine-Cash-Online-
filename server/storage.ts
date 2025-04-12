@@ -1,10 +1,11 @@
 import { 
-  users, transactions, otpCodes, userSettings, userDocuments,
+  users, transactions, otpCodes, userSettings, userDocuments, apiKeys,
   type User, type InsertUser, 
   type Transaction, type InsertTransaction,
   type OtpCode, type InsertOtpCode,
   type UserSetting, type InsertUserSetting,
-  type UserDocument, type InsertUserDocument
+  type UserDocument, type InsertUserDocument,
+  type ApiKey, type InsertApiKey, type UpdateApiKey
 } from "@shared/schema";
 import { db, pool } from "./db";
 import { eq, and, or, desc, gte, lt, inArray } from "drizzle-orm";
@@ -51,6 +52,16 @@ export interface IStorage {
   saveUserDocument(data: InsertUserDocument): Promise<UserDocument>;
   updateUserDocument(id: number, data: Partial<UserDocument>): Promise<UserDocument | undefined>;
   deleteUserDocument(id: number): Promise<void>;
+  
+  // API Key methods
+  createApiKey(userId: number, data: InsertApiKey): Promise<ApiKey>;
+  generateApiKeyString(): Promise<string>;
+  getApiKey(apiKey: string): Promise<ApiKey | undefined>;
+  getApiKeyById(id: number): Promise<ApiKey | undefined>;
+  getUserApiKeys(userId: number): Promise<ApiKey[]>;
+  updateApiKey(id: number, data: UpdateApiKey): Promise<ApiKey | undefined>;
+  deleteApiKey(id: number): Promise<void>;
+  markApiKeyAsUsed(id: number): Promise<void>;
   
   // Session store
   sessionStore: session.Store;

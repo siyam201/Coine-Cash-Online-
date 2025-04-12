@@ -119,6 +119,13 @@ export const userDocumentsRelations = relations(userDocuments, ({ one }) => ({
   })
 }));
 
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  user: one(users, {
+    fields: [apiKeys.userId],
+    references: [users.id]
+  })
+}));
+
 // Schemas
 export const insertUserSchema = createInsertSchema(users, {
   email: z.string().email(),
@@ -265,3 +272,50 @@ export type InsertUserSetting = z.infer<typeof insertUserSettingSchema>;
 
 export type UserDocument = typeof userDocuments.$inferSelect;
 export type InsertUserDocument = z.infer<typeof insertUserDocumentSchema>;
+
+// API Key schemas and types
+export const createApiKeySchema = z.object({
+  name: z.string().min(3).max(255),
+  permissions: z.array(z.enum(["transfer", "balance", "history"])),
+  expiresAt: z.date().optional(),
+  ipRestrictions: z.array(z.string()).optional()
+});
+
+export const insertApiKeySchema = createInsertSchema(apiKeys).omit({
+  id: true,
+  apiKey: true,  // API কী সার্ভার দ্বারা জেনারেট হবে
+  createdAt: true,
+  updatedAt: true,
+  lastUsed: true
+});
+
+export const apiKeyResponseSchema = z.object({
+  id: z.number(),
+  name: z.string(),
+  apiKey: z.string(),  // এটা শুধু একবারই দেখানো হবে, তারপর এনক্রিপ্টেড থাকবে
+  permissions: z.array(z.string()),
+  active: z.boolean(),
+  expiresAt: z.date().nullable(),
+  createdAt: z.date()
+});
+
+export const updateApiKeySchema = z.object({
+  name: z.string().min(3).max(255).optional(),
+  active: z.boolean().optional(),
+  permissions: z.array(z.enum(["transfer", "balance", "history"])).optional(),
+  expiresAt: z.date().nullable().optional(),
+  ipRestrictions: z.array(z.string()).nullable().optional()
+});
+
+export const apiKeyTransferSchema = z.object({
+  receiverEmail: z.string().email(),
+  amount: z.number().positive(),
+  note: z.string().optional()
+});
+
+export type ApiKey = typeof apiKeys.$inferSelect;
+export type InsertApiKey = z.infer<typeof insertApiKeySchema>;
+export type CreateApiKey = z.infer<typeof createApiKeySchema>;
+export type ApiKeyResponse = z.infer<typeof apiKeyResponseSchema>;
+export type UpdateApiKey = z.infer<typeof updateApiKeySchema>;
+export type ApiKeyTransfer = z.infer<typeof apiKeyTransferSchema>;
