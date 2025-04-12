@@ -66,8 +66,11 @@ function Router() {
 }
 
 function App() {
+  // Explicitly creating queryClient instance in App component
+  const queryClientInstance = queryClient;
+  
   return (
-    <QueryClientProvider client={queryClient}>
+    <QueryClientProvider client={queryClientInstance}>
       <AuthProvider>
         <Router />
         <Toaster />
