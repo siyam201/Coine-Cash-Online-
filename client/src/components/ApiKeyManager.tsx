@@ -37,23 +37,17 @@ export function ApiKeyManager() {
   
   // API কী লোড করা
   const { data, isLoading, error } = useQuery({
-    queryKey: ['/api/user/api-keys'],
-    queryFn: async () => {
-      const response = await fetch('/api/user/api-keys');
-      if (!response.ok) {
-        throw new Error('Failed to load API keys');
-      }
-      return response.json();
-    }
+    queryKey: ['/api/user/api-keys']
   });
   
   // মিউটেশন ফাংশন - নতুন API কী তৈরি করার জন্য
   const createMutation = useMutation({
     mutationFn: async (data: CreateApiKeyFormValues) => {
-      return apiRequest('/api/user/api-keys', {
+      const response = await apiRequest('/api/user/api-keys', {
         method: 'POST',
         body: JSON.stringify(data)
       });
+      return response.json();
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/api-keys'] });
@@ -76,9 +70,10 @@ export function ApiKeyManager() {
   // মিউটেশন ফাংশন - API কী ডিলিট করার জন্য
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
-      return apiRequest(`/api/user/api-keys/${id}`, {
+      const response = await apiRequest(`/api/user/api-keys/${id}`, {
         method: 'DELETE'
       });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/api-keys'] });
@@ -100,10 +95,11 @@ export function ApiKeyManager() {
   // API কী অ্যাক্টিভেট/ডিঅ্যাক্টিভেট করার ফাংশন
   const toggleActiveMutation = useMutation({
     mutationFn: async ({ id, active }: { id: number, active: boolean }) => {
-      return apiRequest(`/api/user/api-keys/${id}`, {
+      const response = await apiRequest(`/api/user/api-keys/${id}`, {
         method: 'PATCH',
         body: JSON.stringify({ active })
       });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/user/api-keys'] });

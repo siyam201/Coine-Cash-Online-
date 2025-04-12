@@ -100,7 +100,7 @@ export default function UserProfile() {
   const { data: twoFAStatus } = useQuery({
     queryKey: ["/api/2fa/status"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/2fa/status");
+      const res = await apiRequest("/api/2fa/status", { method: "GET" });
       return await res.json();
     }
   });
