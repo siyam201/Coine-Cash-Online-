@@ -87,16 +87,17 @@ export default function SendMoneyPage() {
 
   const sendMoneyMutation = useMutation({
     mutationFn: async (data: SendMoney) => {
-      const res = await apiRequest("POST", "/api/transactions/send-money", data);
+      // নতুন API এন্ডপয়েন্ট ব্যবহার করছি যা ইউজারের টোকেন দিয়ে ট্রানজেকশন করে
+      const res = await apiRequest("POST", "/api/user/transfer", data);
       return await res.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["/api/user"] });
       queryClient.invalidateQueries({ queryKey: ["/api/transactions"] });
       
       toast({
         title: "Transaction Successful",
-        description: "Your money has been sent successfully!",
+        description: `Your money has been sent successfully! Your current balance is ${formatCurrency(data.currentBalance)}`,
       });
       
       navigate("/");

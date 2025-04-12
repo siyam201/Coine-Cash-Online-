@@ -547,6 +547,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
 });
 
 // ট্রানজেকশন ইতিহাস দেখার API
+// নতুন API এন্ডপয়েন্ট - যা ইউজার টোকেন ব্যবহার করে ট্রানজেকশন করবে (সেন্ডার নিজেই)
+app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { receiverEmail, amount, password, note } = req.body;
+    const sender = req.user; // লগইন করা ইউজার থেকে সেন্ডার পাওয়া যাচ্ছে
+    
+    // আবশ্যকীয় ফিল্ড চেক করুন
+    if (!receiverEmail || !amount || !password) {
+      return res.status(400).json({ message: "Receiver email, amount and password are required" });
+    }
+
+    // রিসিভারের তথ্য চেক করুন
+    const receiver = await storage.getUserByEmail(receiverEmail);
+    if (!receiver) {
+      return res.status(404).json({ message: "Receiver not found" });
+    }
+
+    // নিজের কাছে টাকা পাঠানো বন্ধ করুন
+    if (sender.id === receiver.id) {
+      return res.status(400).json({ message: "Cannot send money to yourself" });
+    }
+
+    // সেন্ডারের ব্যালেন্স চেক করুন
+    if (sender.balance < amount) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
+
+    // পাসওয়ার্ড যাচাই করুন
+    const isPasswordValid = await comparePasswords(password, sender.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    // ট্রানজেকশন তৈরি করুন
+    const transaction = await storage.createTransaction({
+      amount,
+      senderId: sender.id,
+      receiverId: receiver.id,
+      note: note || null
+    });
+
+    // ব্যালেন্স আপডেট করুন
+    await storage.updateUser(sender.id, { balance: sender.balance - amount });
+    await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
+
+    // নোটিফিকেশন পাঠান
+    await sendTransactionNotificationEmail(sender, receiver, amount);
+
+    // যদি সেন্ডারের ব্যালেন্স কমে যায় 1000 এর নিচে তবে সতর্কতা পাঠান
+    if (sender.balance - amount < 1000) {
+      await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - amount });
+    }
+
+    res.status(201).json({
+      message: "Transaction successful",
+      transaction,
+      currentBalance: sender.balance - amount
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { emailSearch } = req.query;
