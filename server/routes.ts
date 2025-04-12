@@ -9,7 +9,8 @@ import {
   updateProfileSchema, enable2FASchema, verify2FASchema, 
   disable2FASchema, use2FARecoverySchema, twoFactorLoginSchema,
   systemSettingsSchema, emailSettingsSchema, securitySettingsSchema,
-  insertUserSettingSchema, insertUserDocumentSchema
+  insertUserSettingSchema, insertUserDocumentSchema,
+  apiKeyTransferSchema, createApiKeySchema, updateApiKeySchema
 } from "@shared/schema";
 import { setupAuth, comparePasswords, hashPassword } from "./auth";
 import passport from "passport";
@@ -23,6 +24,7 @@ import {
   verify2FALogin, useRecoveryCode 
 } from "./two-factor";
 import rateLimit from "express-rate-limit";
+import { validateApiKey, checkApiKeyPermission } from "./api-auth";
 
 // OTP generation utility
 function generateOTP(): string {
@@ -548,6 +550,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 // ট্রানজেকশন ইতিহাস দেখার API
 // নতুন API এন্ডপয়েন্ট - যা ইউজার টোকেন ব্যবহার করে ট্রানজেকশন করবে (সেন্ডার নিজেই)
+// API দিয়ে লগইন ইউজারের ট্রানজেকশন রাউট (ইউজার আইডেন্টিফিকেশন সেশন থেকে আসবে)
 app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { receiverEmail, amount, password, note } = req.body;

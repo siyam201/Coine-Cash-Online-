@@ -399,6 +399,87 @@ export class DatabaseStorage implements IStorage {
       .delete(userDocuments)
       .where(eq(userDocuments.id, id));
   }
+
+  // API Key methods
+  async generateApiKeyString(): Promise<string> {
+    // একটি ইউনিক API কী জেনারেট করে
+    const crypto = require('crypto');
+    // 32 বাইট (64 হেক্স ক্যারেক্টার) রেন্ডম স্ট্রিং জেনারেট করা
+    const apiKey = crypto.randomBytes(32).toString('hex');
+    return apiKey;
+  }
+
+  async createApiKey(userId: number, data: InsertApiKey): Promise<ApiKey> {
+    // API কী স্ট্রিং জেনারেট করা
+    const apiKeyString = await this.generateApiKeyString();
+    
+    // নতুন API কী তৈরি করা
+    const [apiKey] = await db
+      .insert(apiKeys)
+      .values({
+        ...data,
+        userId,
+        apiKey: apiKeyString
+      })
+      .returning();
+    
+    return apiKey;
+  }
+
+  async getApiKey(apiKeyString: string): Promise<ApiKey | undefined> {
+    const [key] = await db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.apiKey, apiKeyString));
+    
+    return key;
+  }
+
+  async getApiKeyById(id: number): Promise<ApiKey | undefined> {
+    const [key] = await db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.id, id));
+    
+    return key;
+  }
+
+  async getUserApiKeys(userId: number): Promise<ApiKey[]> {
+    return db
+      .select()
+      .from(apiKeys)
+      .where(eq(apiKeys.userId, userId))
+      .orderBy(desc(apiKeys.createdAt));
+  }
+
+  async updateApiKey(id: number, data: UpdateApiKey): Promise<ApiKey | undefined> {
+    const [apiKey] = await db
+      .update(apiKeys)
+      .set({ 
+        ...data,
+        updatedAt: new Date()
+      })
+      .where(eq(apiKeys.id, id))
+      .returning();
+    
+    return apiKey;
+  }
+
+  async deleteApiKey(id: number): Promise<void> {
+    await db
+      .delete(apiKeys)
+      .where(eq(apiKeys.id, id));
+  }
+
+  async markApiKeyAsUsed(id: number): Promise<void> {
+    await db
+      .update(apiKeys)
+      .set({ 
+        lastUsed: new Date(),
+        updatedAt: new Date()
+      })
+      .where(eq(apiKeys.id, id));
+  }
 }
 
 export const storage = new DatabaseStorage();
