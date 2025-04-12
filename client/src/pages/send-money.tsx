@@ -65,7 +65,7 @@ export default function SendMoneyPage() {
     resolver: zodResolver(sendMoneySchema),
     defaultValues: {
       receiverEmail: "",
-      amount: 0,
+      amount: undefined, // 0 এর পরিবর্তে undefined ব্যবহার করবো, কারণ ইনপুট ফিল্ড যখন খালি থাকবে তখন এটি প্রাথমিকভাবে খালি দেখাবে
       note: "",
       password: "",
     },
