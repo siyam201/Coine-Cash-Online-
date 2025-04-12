@@ -61,13 +61,28 @@ export const userDocuments = pgTable("user_documents", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const apiKeys = pgTable("api_keys", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id, { onDelete: "cascade" }).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),  // API কী-এর একটি বর্ণনামূলক নাম
+  apiKey: varchar("api_key", { length: 64 }).notNull().unique(),  // অনন্য API কী
+  active: boolean("active").notNull().default(true),  // এই API কী সক্রিয় আছে কিনা
+  permissions: jsonb("permissions").notNull(),  // অনুমতিসমূহ ["transfer", "balance", "history"]
+  lastUsed: timestamp("last_used"),
+  expiresAt: timestamp("expires_at"),
+  ipRestrictions: jsonb("ip_restrictions"),  // IP ঠিকানার সীমাবদ্ধতা
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
 // Relations
 export const usersRelations = relations(users, ({ many }) => ({
   sentTransactions: many(transactions, { relationName: "sender" }),
   receivedTransactions: many(transactions, { relationName: "receiver" }),
   otpCodes: many(otpCodes),
   settings: many(userSettings),
-  documents: many(userDocuments)
+  documents: many(userDocuments),
+  apiKeys: many(apiKeys)
 }));
 
 export const transactionsRelations = relations(transactions, ({ one }) => ({
