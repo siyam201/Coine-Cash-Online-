@@ -1077,6 +1077,250 @@ app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response
       next(error);
     }
   });
+  
+  // ===== API KEY BASED ROUTES =====
+  
+  // Create API Key
+  app.post("/api/user/api-keys", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const data = createApiKeySchema.parse(req.body);
+      
+      // Check if user has too many API keys (limit to 5 per user)
+      const existingKeys = await storage.getUserApiKeys(userId);
+      if (existingKeys.length >= 5) {
+        return res.status(400).json({ 
+          success: false,
+          message: "You have reached the maximum number of API keys (5). Please delete an existing key before creating a new one." 
+        });
+      }
+      
+      // Create the API key
+      const apiKey = await storage.createApiKey(userId, {
+        name: data.name,
+        permissions: data.permissions || ["transfer"],
+        description: data.description || null,
+        ipRestrictions: data.ipRestrictions || null,
+        active: true,
+        expiresAt: data.expirationDays 
+          ? new Date(Date.now() + data.expirationDays * 24 * 60 * 60 * 1000) 
+          : null
+      });
+      
+      res.status(201).json({
+        success: true,
+        message: "API key created successfully",
+        apiKey: {
+          id: apiKey.id,
+          name: apiKey.name,
+          key: apiKey.apiKey, // হুঁশিয়ারি: এই কী শুধু একবারই দেখানো হবে
+          permissions: apiKey.permissions,
+          description: apiKey.description,
+          ipRestrictions: apiKey.ipRestrictions,
+          active: apiKey.active,
+          expiresAt: apiKey.expiresAt,
+          createdAt: apiKey.createdAt
+        }
+      });
+    } catch (error) {
+      console.error("Error creating API key:", error);
+      next(error);
+    }
+  });
+  
+  // Get all API Keys for a user
+  app.get("/api/user/api-keys", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const apiKeys = await storage.getUserApiKeys(userId);
+      
+      // Hide the full API key strings
+      const safeApiKeys = apiKeys.map(key => ({
+        id: key.id,
+        name: key.name,
+        keyPrefix: key.apiKey.substring(0, 8) + "..." + key.apiKey.substring(key.apiKey.length - 4),
+        permissions: key.permissions,
+        description: key.description,
+        ipRestrictions: key.ipRestrictions,
+        active: key.active,
+        expiresAt: key.expiresAt,
+        lastUsed: key.lastUsed,
+        createdAt: key.createdAt,
+        updatedAt: key.updatedAt
+      }));
+      
+      res.json({
+        success: true,
+        apiKeys: safeApiKeys
+      });
+    } catch (error) {
+      console.error("Error fetching API keys:", error);
+      next(error);
+    }
+  });
+  
+  // Update API Key
+  app.patch("/api/user/api-keys/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      const data = updateApiKeySchema.parse(req.body);
+      
+      // Check if the API key exists and belongs to the user
+      const apiKey = await storage.getApiKeyById(Number(id));
+      if (!apiKey) {
+        return res.status(404).json({
+          success: false,
+          message: "API key not found"
+        });
+      }
+      
+      if (apiKey.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to update this API key"
+        });
+      }
+      
+      // Update the API key
+      const updatedApiKey = await storage.updateApiKey(Number(id), {
+        name: data.name,
+        permissions: data.permissions,
+        description: data.description,
+        ipRestrictions: data.ipRestrictions,
+        active: data.active,
+        expiresAt: data.expirationDays 
+          ? new Date(Date.now() + data.expirationDays * 24 * 60 * 60 * 1000) 
+          : apiKey.expiresAt // If no new expiration, keep the old one
+      });
+      
+      res.json({
+        success: true,
+        message: "API key updated successfully",
+        apiKey: {
+          id: updatedApiKey.id,
+          name: updatedApiKey.name,
+          keyPrefix: updatedApiKey.apiKey.substring(0, 8) + "..." + updatedApiKey.apiKey.substring(updatedApiKey.apiKey.length - 4),
+          permissions: updatedApiKey.permissions,
+          description: updatedApiKey.description,
+          ipRestrictions: updatedApiKey.ipRestrictions,
+          active: updatedApiKey.active,
+          expiresAt: updatedApiKey.expiresAt,
+          lastUsed: updatedApiKey.lastUsed,
+          updatedAt: updatedApiKey.updatedAt
+        }
+      });
+    } catch (error) {
+      console.error("Error updating API key:", error);
+      next(error);
+    }
+  });
+  
+  // Delete API Key
+  app.delete("/api/user/api-keys/:id", isAuthenticated, async (req, res, next) => {
+    try {
+      const userId = req.user.id;
+      const { id } = req.params;
+      
+      // Check if the API key exists and belongs to the user
+      const apiKey = await storage.getApiKeyById(Number(id));
+      if (!apiKey) {
+        return res.status(404).json({
+          success: false,
+          message: "API key not found"
+        });
+      }
+      
+      if (apiKey.userId !== userId) {
+        return res.status(403).json({
+          success: false,
+          message: "You do not have permission to delete this API key"
+        });
+      }
+      
+      // Delete the API key
+      await storage.deleteApiKey(Number(id));
+      
+      res.json({
+        success: true,
+        message: "API key deleted successfully"
+      });
+    } catch (error) {
+      console.error("Error deleting API key:", error);
+      next(error);
+    }
+  });
+  
+  // API কী দিয়ে অর্থ স্থানান্তর করার এন্ডপয়েন্ট (বাইরের ওয়েবসাইট থেকে কল করা যাবে)
+  app.post("/api/transfer", validateApiKey, checkApiKeyPermission("transfer"), async (req, res, next) => {
+    try {
+      const data = apiKeyTransferSchema.parse(req.body);
+      const sender = req.user; // validateApiKey মিডলওয়্যার API কী-এর মালিককে req.user হিসেবে সেট করে
+      
+      // রিসিভারকে খুঁজে বের করা
+      const receiver = await storage.getUserByEmail(data.receiverEmail);
+      if (!receiver) {
+        return res.status(404).json({ 
+          success: false,
+          message: "Receiver not found" 
+        });
+      }
+      
+      // নিজের কাছে টাকা পাঠানো বন্ধ করা
+      if (sender.id === receiver.id) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Cannot send money to yourself" 
+        });
+      }
+      
+      // ব্যালেন্স চেক করা
+      if (sender.balance < data.amount) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Insufficient balance" 
+        });
+      }
+      
+      // ট্রানজেকশন তৈরি করা
+      const transaction = await storage.createTransaction({
+        amount: data.amount,
+        senderId: sender.id,
+        receiverId: receiver.id,
+        note: data.note || "API Transaction"
+      });
+      
+      // সেন্ডার এবং রিসিভারের ব্যালেন্স আপডেট করা
+      await storage.updateUser(sender.id, { balance: sender.balance - data.amount });
+      await storage.updateUser(receiver.id, { balance: receiver.balance + data.amount });
+      
+      // ট্রানজেকশন নোটিফিকেশন পাঠানো (ঐচ্ছিক)
+      if (data.sendNotification !== false) {
+        await sendTransactionNotificationEmail(sender, receiver, data.amount);
+      }
+      
+      // যদি সেন্ডারের ব্যালেন্স কমে যায় 1000 এর নিচে তবে সতর্কতা পাঠানো
+      if (sender.balance - data.amount < 1000) {
+        await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - data.amount });
+      }
+      
+      res.status(201).json({
+        success: true,
+        message: "Transaction successful",
+        transaction: {
+          id: transaction.id,
+          amount: transaction.amount,
+          receiverEmail: receiver.email,
+          note: transaction.note,
+          timestamp: transaction.createdAt
+        },
+        currentBalance: sender.balance - data.amount
+      });
+    } catch (error) {
+      console.error("API transfer error:", error);
+      next(error);
+    }
+  });
 
   const httpServer = createServer(app);
   
