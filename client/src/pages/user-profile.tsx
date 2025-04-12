@@ -65,8 +65,10 @@ import {
   Copy,
   Check,
   Eye,
-  EyeOff
+  EyeOff,
+  Key
 } from "lucide-react";
+import { ApiKeyManager } from "@/components/ApiKeyManager";
 
 export default function UserProfile() {
   const [, navigate] = useLocation();
@@ -92,6 +94,7 @@ export default function UserProfile() {
   } | null>(null);
   const [copiedSecretIndex, setCopiedSecretIndex] = useState<number | null>(null);
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState("profile");
   
   // Get 2FA status
   const { data: twoFAStatus } = useQuery({
@@ -308,11 +311,11 @@ export default function UserProfile() {
       setShowStoredPassword(false);
     };
   }, []);
-
+  
   return (
     <ThemeProvider>
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 transition-colors duration-200">
-        <div className="max-w-2xl mx-auto pt-10 pb-20 px-4">
+        <div className="max-w-3xl mx-auto pt-10 pb-20 px-4">
           <button 
             onClick={() => navigate("/")}
             className="flex items-center text-gray-600 dark:text-gray-400 mb-6 hover:text-primary-500 dark:hover:text-primary-400"
@@ -320,301 +323,336 @@ export default function UserProfile() {
             <ChevronLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </button>
-
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5 text-primary-500" />
-                Profile Settings
-              </CardTitle>
-              <CardDescription>
-                Update your account settings and information
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="p-4 bg-primary-50 dark:bg-gray-800 rounded-md mb-6">
-                <div className="flex flex-col sm:flex-row justify-between sm:items-center">
-                  <div>
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Current Balance</span>
-                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {user ? formatCurrency(user.balance) : "-"}
-                    </h3>
-                  </div>
-                  <Button 
-                    variant="outline" 
-                    className="mt-2 sm:mt-0"
-                    onClick={() => navigate("/send-money")}
-                  >
-                    <CreditCard className="h-4 w-4 mr-2" />
-                    Send Money
-                  </Button>
-                </div>
-              </div>
-
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input {...field} type="email" />
-                        </FormControl>
-                        <FormDescription>
-                          Changing your email will require verification
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h3>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setChangePassword(!changePassword)}
-                    >
-                      {changePassword ? "Cancel" : "Change"}
-                    </Button>
-                  </div>
-                  
-                  {changePassword && (
-                    <>
-                      <FormField
-                        control={form.control}
-                        name="newPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>New Password</FormLabel>
-                            <div className="relative">
-                              <FormControl>
-                                <Input 
-                                  {...field} 
-                                  type={showNewPassword ? "text" : "password"} 
-                                />
-                              </FormControl>
-                              <button
-                                type="button"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                onClick={() => setShowNewPassword(!showNewPassword)}
-                              >
-                                {showNewPassword ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                            <FormDescription>
-                              Use a password with at least 8 characters
-                            </FormDescription>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="confirmPassword"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Confirm Password</FormLabel>
-                            <div className="relative">
-                              <FormControl>
-                                <Input 
-                                  {...field} 
-                                  type={showConfirmPassword ? "text" : "password"} 
-                                />
-                              </FormControl>
-                              <button
-                                type="button"
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              >
-                                {showConfirmPassword ? (
-                                  <EyeOff className="h-4 w-4" />
-                                ) : (
-                                  <Eye className="h-4 w-4" />
-                                )}
-                              </button>
-                            </div>
-                            {!passwordsMatch && (
-                              <p className="text-sm font-medium text-destructive">Passwords don't match</p>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <Button 
-                        type="submit" 
-                        disabled={!passwordsMatch || !watchNewPassword || !watchConfirmPassword || updateProfileMutation.isPending}
-                        className="mt-4"
-                      >
-                        {updateProfileMutation.isPending ? "Saving..." : "Save Password"}
-                      </Button>
-                    </>
-                  )}
-                  
-                  <Separator />
-                  
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <Moon className="h-4 w-4 text-gray-500" />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Dark Mode</span>
-                    </div>
-                    <ThemeToggle />
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full"
-                    disabled={updateProfileMutation.isPending}
-                  >
-                    {updateProfileMutation.isPending ? "Updating..." : "Update Profile"}
-                  </Button>
-                </form>
-              </Form>
-            </CardContent>
-          </Card>
           
-          {/* Security Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5 text-primary-500" />
-                Security Settings
-              </CardTitle>
-              <CardDescription>
-                Enhance your account security with two-factor authentication
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Stored Password section */}
-                <div className="pb-4 border-b">
-                  <div className="flex items-center justify-between mb-2">
+          {/* Tabs */}
+          <div className="flex border-b mb-6">
+            <button
+              className={`px-4 py-2 font-medium ${activeTab === 'profile' ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setActiveTab('profile')}
+            >
+              <User className="h-4 w-4 inline mr-2" />
+              Profile
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${activeTab === 'security' ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setActiveTab('security')}
+            >
+              <Shield className="h-4 w-4 inline mr-2" />
+              Security
+            </button>
+            <button
+              className={`px-4 py-2 font-medium ${activeTab === 'api' ? 'border-b-2 border-primary-500 text-primary-600 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400'}`}
+              onClick={() => setActiveTab('api')}
+            >
+              <KeyRound className="h-4 w-4 inline mr-2" />
+              API Keys
+            </button>
+          </div>
+          
+          {/* API Keys tab content */}
+          {activeTab === 'api' && (
+            <ApiKeyManager />
+          )}
+          
+          {/* Profile tab content */}
+          {activeTab === 'profile' && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <User className="h-5 w-5 text-primary-500" />
+                  Profile Settings
+                </CardTitle>
+                <CardDescription>
+                  Update your account settings and information
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="p-4 bg-primary-50 dark:bg-gray-800 rounded-md mb-6">
+                  <div className="flex flex-col sm:flex-row justify-between sm:items-center">
                     <div>
-                      <h3 className="text-lg font-medium">Your Stored Password</h3>
-                      <p className="text-sm text-gray-500 dark:text-gray-400">
-                        View your stored password for reference
-                      </p>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Current Balance</span>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        {user ? formatCurrency(user.balance) : "-"}
+                      </h3>
                     </div>
                     <Button 
                       variant="outline" 
-                      onClick={() => {
-                        if (!storedPassword) {
-                          fetchStoredPassword();
-                        } else {
-                          setStoredPassword("");
-                        }
-                      }}
+                      className="mt-2 sm:mt-0"
+                      onClick={() => navigate("/send-money")}
                     >
-                      {storedPassword ? "Hide Password" : "View Password"}
+                      <CreditCard className="h-4 w-4 mr-2" />
+                      Send Money
                     </Button>
+                  </div>
+                </div>
+
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
+                          <FormControl>
+                            <Input {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input {...field} type="email" />
+                          </FormControl>
+                          <FormDescription>
+                            Changing your email will require verification
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <Separator />
+                    
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium text-gray-900 dark:text-white">Change Password</h3>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setChangePassword(!changePassword)}
+                      >
+                        {changePassword ? "Cancel" : "Change"}
+                      </Button>
+                    </div>
+                    
+                    {changePassword && (
+                      <>
+                        <FormField
+                          control={form.control}
+                          name="newPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>New Password</FormLabel>
+                              <div className="relative">
+                                <FormControl>
+                                  <Input 
+                                    {...field} 
+                                    type={showNewPassword ? "text" : "password"} 
+                                  />
+                                </FormControl>
+                                <button
+                                  type="button"
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                  onClick={() => setShowNewPassword(!showNewPassword)}
+                                >
+                                  {showNewPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                              <FormDescription>
+                                Use a password with at least 8 characters
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <FormField
+                          control={form.control}
+                          name="confirmPassword"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirm Password</FormLabel>
+                              <div className="relative">
+                                <FormControl>
+                                  <Input 
+                                    {...field} 
+                                    type={showConfirmPassword ? "text" : "password"} 
+                                  />
+                                </FormControl>
+                                <button
+                                  type="button"
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                >
+                                  {showConfirmPassword ? (
+                                    <EyeOff className="h-4 w-4" />
+                                  ) : (
+                                    <Eye className="h-4 w-4" />
+                                  )}
+                                </button>
+                              </div>
+                              {!passwordsMatch && (
+                                <p className="text-sm font-medium text-destructive">Passwords don't match</p>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        
+                        <Button 
+                          type="submit" 
+                          disabled={!passwordsMatch || !watchNewPassword || !watchConfirmPassword || updateProfileMutation.isPending}
+                          className="mt-4"
+                        >
+                          {updateProfileMutation.isPending ? "Saving..." : "Save Password"}
+                        </Button>
+                      </>
+                    )}
+                    
+                    <Separator />
+                    
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Moon className="h-4 w-4 text-gray-500" />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">Dark Mode</span>
+                      </div>
+                      <ThemeToggle />
+                    </div>
+                    
+                    <Button 
+                      type="submit" 
+                      className="w-full"
+                      disabled={updateProfileMutation.isPending}
+                    >
+                      {updateProfileMutation.isPending ? "Updating..." : "Update Profile"}
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+          )}
+          
+          {/* Security tab content */}
+          {activeTab === 'security' && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-primary-500" />
+                  Security Settings
+                </CardTitle>
+                <CardDescription>
+                  Enhance your account security with two-factor authentication
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Stored Password section */}
+                  <div className="pb-4 border-b">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <h3 className="text-lg font-medium">Your Stored Password</h3>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                          View your stored password for reference
+                        </p>
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          if (!storedPassword) {
+                            fetchStoredPassword();
+                          } else {
+                            setStoredPassword("");
+                          }
+                        }}
+                      >
+                        {storedPassword ? "Hide Password" : "View Password"}
+                      </Button>
+                    </div>
+                    
+                    {storedPassword ? (
+                      <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+                        <div className="flex justify-between items-center">
+                          <div className="relative w-full">
+                            <Input
+                              type={showStoredPassword ? "text" : "password"}
+                              value={storedPassword}
+                              readOnly
+                              className="pr-10 text-lg font-medium"
+                            />
+                            <button
+                              type="button"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                              onClick={() => setShowStoredPassword(!showStoredPassword)}
+                            >
+                              {showStoredPassword ? (
+                                <EyeOff className="h-4 w-4" />
+                              ) : (
+                                <Eye className="h-4 w-4" />
+                              )}
+                            </button>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="ml-2"
+                            onClick={() => {
+                              navigator.clipboard.writeText(storedPassword);
+                              toast({
+                                title: "Copied",
+                                description: "Password copied to clipboard",
+                              });
+                            }}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ) : isLoadingPassword ? (
+                      <div className="flex justify-center p-4">
+                        <div className="animate-spin h-5 w-5 border-2 border-primary rounded-full border-t-transparent"></div>
+                      </div>
+                    ) : null}
                   </div>
                   
-                  {storedPassword ? (
-                    <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
-                      <div className="flex justify-between items-center">
-                        <div className="relative w-full">
-                          <Input
-                            type={showStoredPassword ? "text" : "password"}
-                            value={storedPassword}
-                            readOnly
-                            className="pr-10 text-lg font-medium"
-                          />
-                          <button
-                            type="button"
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                            onClick={() => setShowStoredPassword(!showStoredPassword)}
-                          >
-                            {showStoredPassword ? (
-                              <EyeOff className="h-4 w-4" />
-                            ) : (
-                              <Eye className="h-4 w-4" />
-                            )}
-                          </button>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2"
-                          onClick={() => {
-                            navigator.clipboard.writeText(storedPassword);
-                            toast({
-                              title: "Copied",
-                              description: "Password copied to clipboard",
-                            });
-                          }}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                      </div>
+                  {/* 2FA section */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-lg font-medium">Two-Factor Authentication (2FA)</h3>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">
+                        Add an extra layer of security to your account
+                      </p>
                     </div>
-                  ) : isLoadingPassword ? (
-                    <div className="flex justify-center p-4">
-                      <div className="animate-spin h-5 w-5 border-2 border-primary rounded-full border-t-transparent"></div>
-                    </div>
-                  ) : null}
-                </div>
-                
-                {/* 2FA section */}
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-medium">Two-Factor Authentication (2FA)</h3>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                      Add an extra layer of security to your account
-                    </p>
+                    {twoFAStatus?.enabled ? (
+                      <Button 
+                        variant="destructive" 
+                        onClick={() => setDisable2faOpen(true)}
+                      >
+                        Disable 2FA
+                      </Button>
+                    ) : (
+                      <Button 
+                        variant="default" 
+                        onClick={() => setSetup2faOpen(true)}
+                      >
+                        Enable 2FA
+                      </Button>
+                    )}
                   </div>
-                  {twoFAStatus?.enabled ? (
-                    <Button 
-                      variant="destructive" 
-                      onClick={() => setDisable2faOpen(true)}
-                    >
-                      Disable 2FA
-                    </Button>
-                  ) : (
-                    <Button 
-                      variant="default" 
-                      onClick={() => setSetup2faOpen(true)}
-                    >
-                      Enable 2FA
-                    </Button>
+                  
+                  {twoFAStatus?.enabled && (
+                    <Alert>
+                      <KeyRound className="h-4 w-4" />
+                      <AlertTitle>Two-factor authentication is enabled</AlertTitle>
+                      <AlertDescription>
+                        Your account is protected with an additional layer of security.
+                      </AlertDescription>
+                    </Alert>
                   )}
                 </div>
-                
-                {twoFAStatus?.enabled && (
-                  <Alert>
-                    <KeyRound className="h-4 w-4" />
-                    <AlertTitle>Two-factor authentication is enabled</AlertTitle>
-                    <AlertDescription>
-                      Your account is protected with an additional layer of security.
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Setup 2FA Dialog */}
           <Dialog open={setup2faOpen} onOpenChange={setSetup2faOpen}>
@@ -684,35 +722,6 @@ export default function UserProfile() {
                 )}
                 
                 <div className="space-y-2">
-                  <div className="flex justify-between items-center">
-                    <label className="text-sm font-medium">Secret Key</label>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2"
-                      onClick={() => {
-                        if (setupData?.secret) {
-                          navigator.clipboard.writeText(setupData.secret);
-                          toast({
-                            title: "Copied",
-                            description: "Secret key copied to clipboard",
-                          });
-                        }
-                      }}
-                    >
-                      <Copy className="h-3 w-3 mr-1" />
-                      Copy
-                    </Button>
-                  </div>
-                  <div className="p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs font-mono break-all">
-                    {setupData?.secret}
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    If you can't scan the QR code, enter this secret key manually in your app
-                  </p>
-                </div>
-                
-                <div className="space-y-2">
                   <label className="text-sm font-medium">Verification Code</label>
                   <InputOTP maxLength={6} value={otpValue} onChange={setOtpValue}>
                     <InputOTPGroup>
@@ -726,33 +735,59 @@ export default function UserProfile() {
                   </InputOTP>
                 </div>
                 
-                {setupData?.recoveryCodes && (
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Recovery Codes</label>
-                    <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-md max-h-40 overflow-y-auto">
-                      <div className="space-y-1">
-                        {setupData.recoveryCodes.map((code, index) => (
-                          <div key={index} className="flex justify-between items-center">
-                            <code className="text-xs font-mono">{code}</code>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 px-2"
-                              onClick={() => handleCopyRecoveryCode(code, index)}
-                            >
-                              {copiedSecretIndex === index ? (
-                                <Check className="h-3 w-3" />
-                              ) : (
-                                <Copy className="h-3 w-3" />
-                              )}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Save these recovery codes in a secure place. You can use them to regain access if you lose your authenticator device.
+                {setupData?.secret && (
+                  <div>
+                    <p className="text-sm text-gray-500 mb-2">
+                      If you can't scan the QR code, enter this key manually in your authenticator app:
                     </p>
+                    <div className="flex items-center space-x-2 p-2 bg-gray-100 dark:bg-gray-800 rounded">
+                      <code className="flex-1 text-sm">{setupData.secret}</code>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(setupData.secret);
+                          toast({
+                            title: "Copied",
+                            description: "Secret key copied to clipboard",
+                          });
+                        }}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                
+                {setupData?.recoveryCodes && (
+                  <div>
+                    <p className="text-sm font-medium mb-2">Recovery Codes</p>
+                    <p className="text-sm text-gray-500 mb-2">
+                      Save these recovery codes in a secure location. You can use them to access your account if you
+                      lose your 2FA device.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 p-3 bg-gray-100 dark:bg-gray-800 rounded-md">
+                      {setupData.recoveryCodes.map((code, index) => (
+                        <div
+                          key={code}
+                          className="flex items-center justify-between p-1.5 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                        >
+                          <code className="text-xs">{code}</code>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-6 w-6 p-0"
+                            onClick={() => handleCopyRecoveryCode(code, index)}
+                          >
+                            {copiedSecretIndex === index ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -773,7 +808,7 @@ export default function UserProfile() {
               <DialogHeader>
                 <DialogTitle>Disable Two-Factor Authentication</DialogTitle>
                 <DialogDescription>
-                  To disable 2FA, enter your password and current verification code
+                  Enter your password and a verification code to disable 2FA
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-4">
@@ -824,7 +859,7 @@ export default function UserProfile() {
                 <Button 
                   variant="destructive" 
                   onClick={handleDisable2FA} 
-                  disabled={disable2FAMutation.isPending || !passwordForDisable2fa || otpValue.length !== 6}
+                  disabled={disable2FAMutation.isPending}
                 >
                   {disable2FAMutation.isPending ? "Disabling..." : "Disable 2FA"}
                 </Button>
