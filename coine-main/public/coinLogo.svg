@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background -->
+  <rect x="0" y="0" width="200" height="200" rx="40" fill="#1E40AF" />
+  
+  <!-- Gold coin -->
+  <circle cx="100" cy="90" r="60" fill="#FFC107" stroke="#F57C00" stroke-width="5" />
+  
+  <!-- Dollar sign -->
+  <path d="M100 50 v80 M85 60 C85 60, 115 60, 115 75 C115 90, 85 90, 85 105 C85 120, 115 120, 115 120" 
+        stroke="#4CAF50" stroke-width="10" stroke-linecap="round" fill="none" />
+  
+  <!-- Cash stack -->
+  <rect x="70" y="120" width="60" height="10" rx="2" fill="#4CAF50" />
+  <rect x="75" y="130" width="50" height="10" rx="2" fill="#4CAF50" />
+  <rect x="80" y="140" width="40" height="10" rx="2" fill="#4CAF50" />
+</svg>

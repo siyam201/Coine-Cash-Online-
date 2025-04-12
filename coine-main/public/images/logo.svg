@@ -1,0 +1,26 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="coinGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#22c55e" />
+      <stop offset="100%" stop-color="#3b82f6" />
+    </linearGradient>
+    <linearGradient id="dollarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#f0f0f0" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.3" />
+    </filter>
+  </defs>
+
+  <!-- Coin background -->
+  <circle cx="80" cy="80" r="70" fill="url(#coinGradient)" filter="url(#shadow)" />
+  <circle cx="80" cy="80" r="60" fill="#f8fafc" />
+
+  <!-- Dollar sign -->
+  <path d="M80 30C77.2386 30 75 32.2386 75 35V40C67.5 41.5 62 47 62 55C62 64 69 69 80 71.5C91 74 96 77 96 84C96 90 91 93 85 93C79 93 74 90 72 84H60C62 97 70 105 75 107V115C75 117.761 77.2386 120 80 120C82.7614 120 85 117.761 85 115V107C94 104.5 101 97.5 101 84C101 71.5 92 66 80 63.5C69 61 67 58 67 55C67 52 70 49 75 49C80 49 84 52 85 56H97C96 45.5 89 40.5 85 40V35C85 32.2386 82.7614 30 80 30Z" fill="url(#dollarGradient)" />
+
+  <!-- Rim/edge of coin -->
+  <circle cx="80" cy="80" r="70" fill="none" stroke="url(#coinGradient)" stroke-width="5" />
+</svg>

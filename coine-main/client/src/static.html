@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coine Cash Online - Health Check</title>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background-color: #f9fafb;
+      color: #111827;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 2rem;
+      background-color: white;
+      border-radius: 0.5rem;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    h1 {
+      color: #4f46e5;
+      margin-bottom: 1rem;
+    }
+    .status {
+      margin-top: 2rem;
+      padding: 1rem;
+      border-radius: 0.375rem;
+    }
+    .success {
+      background-color: #ecfdf5;
+      color: #047857;
+      border: 1px solid #10b981;
+    }
+    .error {
+      background-color: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #ef4444;
+    }
+    button {
+      margin-top: 1rem;
+      padding: 0.5rem 1rem;
+      background-color: #4f46e5;
+      color: white;
+      border: none;
+      border-radius: 0.375rem;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    button:hover {
+      background-color: #4338ca;
+    }
+    .loading {
+      display: inline-block;
+      width: 1rem;
+      height: 1rem;
+      border: 2px solid rgba(79, 70, 229, 0.3);
+      border-radius: 50%;
+      border-top-color: #4f46e5;
+      animation: spin 1s ease-in-out infinite;
+      margin-right: 0.5rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Coine Cash Online - Health Check</h1>
+    <p>This page checks if the Coine Cash Online application is functioning correctly.</p>
+    
+    <div id="serverStatus" class="status">
+      <div class="loading"></div> Checking server status...
+    </div>
+    
+    <div id="clientStatus" class="status">
+      <div class="loading"></div> Checking client application...
+    </div>
+    
+    <button id="checkButton" onclick="checkHealth()">Check Again</button>
+  </div>
+
+  <script>
+    // Check health when page loads
+    document.addEventListener('DOMContentLoaded', checkHealth);
+    
+    function checkHealth() {
+      // Reset status
+      document.getElementById('serverStatus').className = 'status';
+      document.getElementById('serverStatus').innerHTML = '<div class="loading"></div> Checking server status...';
+      
+      document.getElementById('clientStatus').className = 'status';
+      document.getElementById('clientStatus').innerHTML = '<div class="loading"></div> Checking client application...';
+      
+      // Check server
+      fetch('/api/health')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          document.getElementById('serverStatus').className = 'status success';
+          document.getElementById('serverStatus').innerHTML = `
+            <strong>Server Status:</strong> Online
+            <p>Message: ${data.message}</p>
+            <p>Timestamp: ${data.timestamp}</p>
+          `;
+        })
+        .catch(error => {
+          document.getElementById('serverStatus').className = 'status error';
+          document.getElementById('serverStatus').innerHTML = `
+            <strong>Server Status:</strong> Offline
+            <p>Error: ${error.message}</p>
+          `;
+        });
+      
+      // Check client by checking if main.js is loaded
+      fetch('/src/main.tsx')
+        .then(response => {
+          document.getElementById('clientStatus').className = 'status success';
+          document.getElementById('clientStatus').innerHTML = `
+            <strong>Client Application:</strong> Available
+            <p>The client application files are being served correctly.</p>
+            <p><a href="/" target="_blank">Open Application</a></p>
+          `;
+        })
+        .catch(error => {
+          document.getElementById('clientStatus').className = 'status error';
+          document.getElementById('clientStatus').innerHTML = `
+            <strong>Client Application:</strong> Unavailable
+            <p>Error: ${error.message}</p>
+          `;
+        });
+    }
+  </script>
+</body>
+</html>
