@@ -1,0 +1,17 @@
+export SESSION_SECRET="this-is-a-very-secure-secret-key-for-testing"
+export EMAIL_USER="authotp247@gmail.com"
+export EMAIL_PASS="yrbh sahp dqup yaoe"
+<<<<<<< HEAD
+export APP_URL="https://eae5cc41-febf-4234-95b0-fb85f9a613c6-00-hv2jl34a30ud.picard.replit.dev"
+
+
+ SESSION_SECRET="this-is-a-very-secure-secret-key-for-testing"
+ EMAIL_USER="authotp247@gmail.com"
+ EMAIL_PASS="yrbh sahp dqup yaoe"
+ APP_URL="https://coine.onrender.com/"
+=======
+export APP_URL=" APP_URL="https://coine.onrender.com/"
+
+
+
+>>>>>>> d0709dc0a64f17b2fde4bd964510368dfba11c09
