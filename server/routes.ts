@@ -615,33 +615,51 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
 
 app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
+    // Log incoming request for debugging
+    console.log('Received transfer request:', req.body);
+
     const { senderEmail, receiverEmail, amount, note } = req.body;
-    const sender = req.user; // Logged-in user (sender)
+    const sender = req.user;  // The logged-in user (sender)
 
     // Check if all required fields are provided
     if (!senderEmail || !receiverEmail || !amount) {
-      return res.status(400).json({ error: "Invalid input", message: "Sender email, receiver email, and amount are required" });
+      return res.status(400).json({
+        error: "Invalid input",
+        message: "Missing required fields: senderEmail, receiverEmail, or amount"
+      });
     }
 
-    // Check if the sender is the one making the request (email-based verification)
+    // Check if sender's email matches the authenticated user's email
     if (senderEmail !== sender.email) {
-      return res.status(403).json({ error: "Invalid input", message: "Sender email does not match authenticated user" });
+      return res.status(403).json({
+        error: "Invalid input",
+        message: "Sender email does not match authenticated user"
+      });
     }
 
     // Fetch the receiver's details
     const receiver = await storage.getUserByEmail(receiverEmail);
     if (!receiver) {
-      return res.status(404).json({ error: "Receiver not found", message: "Receiver email not found in our records" });
+      return res.status(404).json({
+        error: "Receiver not found",
+        message: "Receiver email not found in our records"
+      });
     }
 
     // Prevent sending money to yourself
     if (sender.id === receiver.id) {
-      return res.status(400).json({ error: "Invalid input", message: "Cannot send money to yourself" });
+      return res.status(400).json({
+        error: "Invalid input",
+        message: "Cannot send money to yourself"
+      });
     }
 
     // Check if the sender has sufficient balance
     if (sender.balance < amount) {
-      return res.status(400).json({ error: "Insufficient balance", message: "You do not have enough balance to complete this transaction" });
+      return res.status(400).json({
+        error: "Invalid input",
+        message: "Insufficient balance"
+      });
     }
 
     // Update sender's and receiver's balances
@@ -659,7 +677,7 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
     // Send transaction notification email to both sender and receiver
     await sendTransactionNotificationEmail(sender, receiver, amount);
 
-    // Optional: Send low balance warning if the sender's balance is under the threshold
+    // Optional: Send low balance warning if sender's balance is under the threshold
     if (sender.balance - amount < 1000) {
       await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - amount });
     }
