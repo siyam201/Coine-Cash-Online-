@@ -212,7 +212,7 @@ export default function AuthPage() {
                 <div className="relative">
                   <div className="absolute -inset-0.5 rounded-full bg-gradient-to-r from-primary-500 to-primary-600 opacity-75 blur-sm animate-pulse"></div>
                   <div className="relative h-16 w-16 rounded-full flex items-center justify-center shadow-lg overflow-hidden bg-white dark:bg-gray-700">
-                    <img src="/images/logo.svg" alt="Coine Cash Online Logo" className="h-16 w-16" />
+                   <img src="logo.png" alt="Coine Cash Online Logo" className="h-16 w-16" />
                   </div>
                 </div>
               </div>
