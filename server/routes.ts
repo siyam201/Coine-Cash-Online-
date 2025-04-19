@@ -615,12 +615,40 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
 
 app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { receiverEmail, amount, password, note } = req.body;
-    const sender = req.user;
+    const { senderEmail, receiverEmail, amount, note } = req.body;
+    const sender = req.user; // Logged-in user (sender)
 
-    // ... রিসিভার চেক, ব্যালেন্স চেক, পাসওয়ার্ড চেক ইত্যাদি
+    // Check if all required fields are provided
+    if (!senderEmail || !receiverEmail || !amount) {
+      return res.status(400).json({ message: "Sender email, receiver email, and amount are required" });
+    }
 
-    // ট্রানজেকশন তৈরি
+    // Check if the sender is the one making the request (email-based verification)
+    if (senderEmail !== sender.email) {
+      return res.status(403).json({ message: "Sender email does not match authenticated user" });
+    }
+
+    // Fetch the receiver's details
+    const receiver = await storage.getUserByEmail(receiverEmail);
+    if (!receiver) {
+      return res.status(404).json({ message: "Receiver not found" });
+    }
+
+    // Prevent sending money to yourself
+    if (sender.id === receiver.id) {
+      return res.status(400).json({ message: "Cannot send money to yourself" });
+    }
+
+    // Check if the sender has sufficient balance
+    if (sender.balance < amount) {
+      return res.status(400).json({ message: "Insufficient balance" });
+    }
+
+    // Update sender's and receiver's balances
+    await storage.updateUser(sender.id, { balance: sender.balance - amount });
+    await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
+
+    // Create the transaction record
     const transaction = await storage.createTransaction({
       amount,
       senderId: sender.id,
@@ -628,23 +656,21 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
       note: note || null
     });
 
-    // ব্যালেন্স আপডেট
-    await storage.updateUser(sender.id, { balance: sender.balance - amount });
-    await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
-
-    // ট্রানজেকশন সফল হলে ইমেইল পাঠাও
+    // Send transaction notification email to both sender and receiver
     await sendTransactionNotificationEmail(sender, receiver, amount);
 
-    // সতর্কতা ইমেইল (যদি দরকার হয়)
+    // Optional: Send low balance warning if the sender's balance is under the threshold
     if (sender.balance - amount < 1000) {
       await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - amount });
     }
 
+    // Respond with the transaction details
     res.status(201).json({ message: "Transfer successful", transaction });
   } catch (error) {
     next(error);
   }
 });
+
 
   
   // Admin routes
