@@ -613,76 +613,79 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
   }
 });
 
-app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
+import express, { Request, Response } from 'express';
+import { z } from 'zod';
+import { storage } from './storage'; // Your storage/database module
+import { validateApiKey } from './auth'; // Your API key validation middleware
+
+const app = express();
+app.use(express.json());
+
+// Define transfer schema
+const transferSchema = z.object({
+  senderEmail: z.string().email(),
+  receiverEmail: z.string().email(),
+  amount: z.number().positive().max(1000000), // Set reasonable maximum
+  note: z.string().optional().max(500) // Limit note length
+});
+
+// Money Transfer Endpoint
+app.post("/api/transfer", validateApiKey, async (req: Request, res: Response) => {
   try {
-    console.log('Received transfer request:', {
+    console.log('Transfer request received:', {
+      headers: req.headers,
       body: req.body,
-      user: req.user,
-      headers: req.headers
+      user: req.user // Added by validateApiKey middleware
     });
 
-    // Validate input with schema
-    const transferSchema = z.object({
-      senderEmail: z.string().email(),
-      receiverEmail: z.string().email(),
-      amount: z.number().positive().max(1000000), // Example max amount
-      note: z.string().optional(),
-      password: z.string().optional() // For additional security
-    });
-
-    const validatedData = transferSchema.safeParse(req.body);
-    if (!validatedData.success) {
-      console.log('Validation error:', validatedData.error);
-      return res.status(400).json({
-        error: "Invalid input",
-        details: validatedData.error.errors
-      });
-    }
-
-    const { senderEmail, receiverEmail, amount, note, password } = validatedData.data;
+    // Validate input
+    const { senderEmail, receiverEmail, amount, note } = transferSchema.parse(req.body);
+    
+    // Get sender from API key
     const sender = req.user;
-
-    // Enhanced email verification
-    if (senderEmail.toLowerCase() !== sender.email.toLowerCase()) {
-      return res.status(403).json({
-        error: "Authorization error",
-        message: "You can only send money from your own account"
-      });
-    }
-
-    // Password verification if provided
-    if (password && !(await comparePasswords(password, sender.password))) {
+    if (!sender) {
       return res.status(401).json({
-        error: "Security error",
-        message: "Incorrect password"
+        error: "Unauthorized",
+        message: "Invalid API key"
       });
     }
 
+    // Verify sender email matches
+    if (sender.email.toLowerCase() !== senderEmail.toLowerCase()) {
+      return res.status(403).json({
+        error: "Sender mismatch",
+        message: "API key owner doesn't match sender email"
+      });
+    }
+
+    // Check receiver
     const receiver = await storage.getUserByEmail(receiverEmail.toLowerCase());
     if (!receiver || !receiver.isVerified) {
       return res.status(404).json({
-        error: "Receiver error",
-        message: "Receiver not found or account not verified"
+        error: "Receiver not found",
+        message: "No verified account with that email exists"
       });
     }
 
+    // Prevent self-transfer
     if (sender.id === receiver.id) {
       return res.status(400).json({
-        error: "Validation error",
+        error: "Invalid transfer",
         message: "Cannot send money to yourself"
       });
     }
 
+    // Check balance
     if (sender.balance < amount) {
       return res.status(400).json({
-        error: "Balance error",
-        message: "Insufficient funds",
-        currentBalance: sender.balance
+        error: "Insufficient funds",
+        currentBalance: sender.balance,
+        requiredAmount: amount
       });
     }
 
-    // Start transaction
-    await db.execute('BEGIN');
+    // Start database transaction
+    await storage.beginTransaction();
 
     try {
       // Update balances
@@ -695,37 +698,67 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
         senderId: sender.id,
         receiverId: receiver.id,
         note: note || null,
-        status: 'completed'
+        status: "completed"
       });
 
-      await db.execute('COMMIT');
+      // Commit transaction
+      await storage.commitTransaction();
 
-      // Send notifications
-      await sendTransactionNotificationEmail(sender, receiver, amount);
-      
-      if (sender.balance - amount < 1000) {
-        await sendLowBalanceWarningEmail({ 
-          ...sender, 
-          balance: sender.balance - amount 
-        });
-      }
+      // Send notifications (fire-and-forget)
+      await Promise.all([
+        storage.logNotification({
+          userId: sender.id,
+          type: 'transfer_sent',
+          message: `You sent $${amount} to ${receiver.email}`
+        }),
+        storage.logNotification({
+          userId: receiver.id,
+          type: 'transfer_received',
+          message: `You received $${amount} from ${sender.email}`
+        })
+      ]);
 
-      return res.status(201).json({
+      // Return success response
+      return res.status(200).json({
         success: true,
-        message: "Transfer completed",
-        transaction,
+        transaction: {
+          id: transaction.id,
+          amount: transaction.amount,
+          receiverEmail: receiver.email,
+          timestamp: transaction.createdAt,
+          note: transaction.note
+        },
         newBalance: sender.balance - amount
       });
 
     } catch (error) {
-      await db.execute('ROLLBACK');
+      // Rollback on any error
+      await storage.rollbackTransaction();
       throw error;
     }
 
   } catch (error) {
     console.error('Transfer error:', error);
-    next(error);
+
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        error: "Validation failed",
+        message: "Invalid input data",
+        details: error.errors.map(e => ({
+          path: e.path.join('.'),
+          message: e.message
+        }))
+      });
+    }
+
+    res.status(500).json({ 
+      error: "Internal server error",
+      message: "Please try again later"
+    });
   }
+});
+
+// Error handling middl
 });
   
   // Admin routes
