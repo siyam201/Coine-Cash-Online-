@@ -620,28 +620,28 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
 
     // Check if all required fields are provided
     if (!senderEmail || !receiverEmail || !amount) {
-      return res.status(400).json({ message: "Sender email, receiver email, and amount are required" });
+      return res.status(400).json({ error: "Invalid input", message: "Sender email, receiver email, and amount are required" });
     }
 
     // Check if the sender is the one making the request (email-based verification)
     if (senderEmail !== sender.email) {
-      return res.status(403).json({ message: "Sender email does not match authenticated user" });
+      return res.status(403).json({ error: "Invalid input", message: "Sender email does not match authenticated user" });
     }
 
     // Fetch the receiver's details
     const receiver = await storage.getUserByEmail(receiverEmail);
     if (!receiver) {
-      return res.status(404).json({ message: "Receiver not found" });
+      return res.status(404).json({ error: "Receiver not found", message: "Receiver email not found in our records" });
     }
 
     // Prevent sending money to yourself
     if (sender.id === receiver.id) {
-      return res.status(400).json({ message: "Cannot send money to yourself" });
+      return res.status(400).json({ error: "Invalid input", message: "Cannot send money to yourself" });
     }
 
     // Check if the sender has sufficient balance
     if (sender.balance < amount) {
-      return res.status(400).json({ message: "Insufficient balance" });
+      return res.status(400).json({ error: "Insufficient balance", message: "You do not have enough balance to complete this transaction" });
     }
 
     // Update sender's and receiver's balances
