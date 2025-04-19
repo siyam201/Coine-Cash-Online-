@@ -613,152 +613,119 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
   }
 });
 
-import express, { Request, Response } from 'express';
+// Add this at the top with other imports
 import { z } from 'zod';
-import { storage } from './storage'; // Your storage/database module
-import { validateApiKey } from './auth'; // Your API key validation middleware
 
-const app = express();
-app.use(express.json());
-
-// Define transfer schema
+// Define unified transfer schema
 const transferSchema = z.object({
   senderEmail: z.string().email(),
   receiverEmail: z.string().email(),
-  amount: z.number().positive().max(1000000), // Set reasonable maximum
-  note: z.string().optional().max(500) // Limit note length
+  amount: z.number().positive().max(1000000),
+  note: z.string().optional(),
+  password: z.string().optional() // Required for authenticated transfers
 });
 
-// Money Transfer Endpoint
-app.post("/api/transfer", validateApiKey, async (req: Request, res: Response) => {
+// Unified Transfer Endpoint
+app.post("/api/transfer", async (req: Request, res: Response, next: NextFunction) => {
   try {
-    console.log('Transfer request received:', {
-      headers: req.headers,
-      body: req.body,
-      user: req.user // Added by validateApiKey middleware
-    });
-
-    // Validate input
-    const { senderEmail, receiverEmail, amount, note } = transferSchema.parse(req.body);
+    // Parse and validate input
+    const data = transferSchema.parse(req.body);
     
-    // Get sender from API key
-    const sender = req.user;
-    if (!sender) {
-      return res.status(401).json({
-        error: "Unauthorized",
-        message: "Invalid API key"
-      });
+    // Determine authentication method
+    const isApiKeyRequest = req.headers.authorization?.startsWith('Bearer ');
+    const isAuthenticatedRequest = req.isAuthenticated();
+
+    // Get sender based on auth method
+    let sender;
+    if (isApiKeyRequest) {
+      // API Key auth - validate via middleware
+      await validateApiKey(req, res, () => {});
+      sender = req.user;
+    } else if (isAuthenticatedRequest) {
+      // Session auth
+      sender = req.user;
+      // Verify password if provided
+      if (data.password && !await comparePasswords(data.password, sender.password)) {
+        return res.status(401).json({ error: "Invalid password" });
+      }
+    } else {
+      return res.status(401).json({ error: "Authentication required" });
     }
 
-    // Verify sender email matches
-    if (sender.email.toLowerCase() !== senderEmail.toLowerCase()) {
-      return res.status(403).json({
-        error: "Sender mismatch",
-        message: "API key owner doesn't match sender email"
-      });
+    // Common validation
+    if (sender.email.toLowerCase() !== data.senderEmail.toLowerCase()) {
+      return res.status(403).json({ error: "Sender email mismatch" });
     }
 
-    // Check receiver
-    const receiver = await storage.getUserByEmail(receiverEmail.toLowerCase());
-    if (!receiver || !receiver.isVerified) {
-      return res.status(404).json({
-        error: "Receiver not found",
-        message: "No verified account with that email exists"
-      });
+    const receiver = await storage.getUserByEmail(data.receiverEmail.toLowerCase());
+    if (!receiver?.isVerified) {
+      return res.status(404).json({ error: "Receiver not found or unverified" });
     }
 
-    // Prevent self-transfer
     if (sender.id === receiver.id) {
-      return res.status(400).json({
-        error: "Invalid transfer",
-        message: "Cannot send money to yourself"
+      return res.status(400).json({ error: "Cannot transfer to yourself" });
+    }
+
+    if (sender.balance < data.amount) {
+      return res.status(400).json({ 
+        error: "Insufficient balance",
+        currentBalance: sender.balance
       });
     }
 
-    // Check balance
-    if (sender.balance < amount) {
-      return res.status(400).json({
-        error: "Insufficient funds",
-        currentBalance: sender.balance,
-        requiredAmount: amount
-      });
-    }
-
-    // Start database transaction
+    // Start transaction
     await storage.beginTransaction();
 
     try {
       // Update balances
-      await storage.updateUser(sender.id, { balance: sender.balance - amount });
-      await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
+      await storage.updateUser(sender.id, { balance: sender.balance - data.amount });
+      await storage.updateUser(receiver.id, { balance: receiver.balance + data.amount });
 
-      // Create transaction record
+      // Record transaction
       const transaction = await storage.createTransaction({
-        amount,
+        amount: data.amount,
         senderId: sender.id,
         receiverId: receiver.id,
-        note: note || null,
+        note: data.note || null,
         status: "completed"
       });
 
       // Commit transaction
       await storage.commitTransaction();
 
-      // Send notifications (fire-and-forget)
-      await Promise.all([
-        storage.logNotification({
-          userId: sender.id,
-          type: 'transfer_sent',
-          message: `You sent $${amount} to ${receiver.email}`
-        }),
-        storage.logNotification({
-          userId: receiver.id,
-          type: 'transfer_received',
-          message: `You received $${amount} from ${sender.email}`
-        })
-      ]);
+      // Send notifications (async)
+      sendTransactionNotificationEmail(sender, receiver, data.amount).catch(console.error);
+      
+      if (sender.balance - data.amount < 1000) {
+        sendLowBalanceWarningEmail({ 
+          ...sender, 
+          balance: sender.balance - data.amount 
+        }).catch(console.error);
+      }
 
-      // Return success response
-      return res.status(200).json({
+      res.status(200).json({
         success: true,
-        transaction: {
-          id: transaction.id,
-          amount: transaction.amount,
-          receiverEmail: receiver.email,
-          timestamp: transaction.createdAt,
-          note: transaction.note
-        },
-        newBalance: sender.balance - amount
+        transaction,
+        newBalance: sender.balance - data.amount
       });
 
     } catch (error) {
-      // Rollback on any error
       await storage.rollbackTransaction();
       throw error;
     }
 
   } catch (error) {
-    console.error('Transfer error:', error);
-
     if (error instanceof z.ZodError) {
       return res.status(400).json({
-        error: "Validation failed",
-        message: "Invalid input data",
+        error: "Validation error",
         details: error.errors.map(e => ({
-          path: e.path.join('.'),
+          field: e.path.join('.'),
           message: e.message
         }))
       });
     }
-
-    res.status(500).json({ 
-      error: "Internal server error",
-      message: "Please try again later"
-    });
+    next(error);
   }
-});
-
-// Error handling middl
 });
   
   // Admin routes
