@@ -615,84 +615,118 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
 
 app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Log the incoming request body for debugging
-    console.log('Received transfer request:', req.body);
+    console.log('Received transfer request:', {
+      body: req.body,
+      user: req.user,
+      headers: req.headers
+    });
 
-    const { senderEmail, receiverEmail, amount, note } = req.body;
-    const sender = req.user;  // The logged-in user (sender)
+    // Validate input with schema
+    const transferSchema = z.object({
+      senderEmail: z.string().email(),
+      receiverEmail: z.string().email(),
+      amount: z.number().positive().max(1000000), // Example max amount
+      note: z.string().optional(),
+      password: z.string().optional() // For additional security
+    });
 
-    // Check if all required fields are provided
-    if (!senderEmail || !receiverEmail || !amount) {
-      console.log('Missing fields:', { senderEmail, receiverEmail, amount });
+    const validatedData = transferSchema.safeParse(req.body);
+    if (!validatedData.success) {
+      console.log('Validation error:', validatedData.error);
       return res.status(400).json({
         error: "Invalid input",
-        message: "Missing required fields: senderEmail, receiverEmail, or amount"
+        details: validatedData.error.errors
       });
     }
 
-    // Check if sender's email matches the authenticated user's email
-    if (senderEmail !== sender.email) {
-      console.log('Email mismatch:', { expected: sender.email, received: senderEmail });
+    const { senderEmail, receiverEmail, amount, note, password } = validatedData.data;
+    const sender = req.user;
+
+    // Enhanced email verification
+    if (senderEmail.toLowerCase() !== sender.email.toLowerCase()) {
       return res.status(403).json({
-        error: "Invalid input",
-        message: "Sender email does not match authenticated user"
+        error: "Authorization error",
+        message: "You can only send money from your own account"
       });
     }
 
-    // Fetch the receiver's details
-    const receiver = await storage.getUserByEmail(receiverEmail);
-    if (!receiver) {
-      console.log('Receiver not found:', receiverEmail);
+    // Password verification if provided
+    if (password && !(await comparePasswords(password, sender.password))) {
+      return res.status(401).json({
+        error: "Security error",
+        message: "Incorrect password"
+      });
+    }
+
+    const receiver = await storage.getUserByEmail(receiverEmail.toLowerCase());
+    if (!receiver || !receiver.isVerified) {
       return res.status(404).json({
-        error: "Receiver not found",
-        message: "Receiver email not found in our records"
+        error: "Receiver error",
+        message: "Receiver not found or account not verified"
       });
     }
 
-    // Prevent sending money to yourself
     if (sender.id === receiver.id) {
       return res.status(400).json({
-        error: "Invalid input",
+        error: "Validation error",
         message: "Cannot send money to yourself"
       });
     }
 
-    // Check if the sender has sufficient balance
     if (sender.balance < amount) {
       return res.status(400).json({
-        error: "Invalid input",
-        message: "Insufficient balance"
+        error: "Balance error",
+        message: "Insufficient funds",
+        currentBalance: sender.balance
       });
     }
 
-    // Update sender's and receiver's balances
-    await storage.updateUser(sender.id, { balance: sender.balance - amount });
-    await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
+    // Start transaction
+    await db.execute('BEGIN');
 
-    // Create the transaction record
-    const transaction = await storage.createTransaction({
-      amount,
-      senderId: sender.id,
-      receiverId: receiver.id,
-      note: note || null
-    });
+    try {
+      // Update balances
+      await storage.updateUser(sender.id, { balance: sender.balance - amount });
+      await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
 
-    // Send transaction notification email to both sender and receiver
-    await sendTransactionNotificationEmail(sender, receiver, amount);
+      // Create transaction record
+      const transaction = await storage.createTransaction({
+        amount,
+        senderId: sender.id,
+        receiverId: receiver.id,
+        note: note || null,
+        status: 'completed'
+      });
 
-    // Optional: Send low balance warning if sender's balance is under the threshold
-    if (sender.balance - amount < 1000) {
-      await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - amount });
+      await db.execute('COMMIT');
+
+      // Send notifications
+      await sendTransactionNotificationEmail(sender, receiver, amount);
+      
+      if (sender.balance - amount < 1000) {
+        await sendLowBalanceWarningEmail({ 
+          ...sender, 
+          balance: sender.balance - amount 
+        });
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: "Transfer completed",
+        transaction,
+        newBalance: sender.balance - amount
+      });
+
+    } catch (error) {
+      await db.execute('ROLLBACK');
+      throw error;
     }
 
-    // Respond with the transaction details
-    res.status(201).json({ message: "Transfer successful", transaction });
   } catch (error) {
+    console.error('Transfer error:', error);
     next(error);
   }
 });
-
-
   
   // Admin routes
   app.get("/api/admin/users", isAdmin, async (req, res, next) => {
