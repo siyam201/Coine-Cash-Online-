@@ -615,7 +615,7 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
 
 app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Log incoming request for debugging
+    // Log the incoming request body for debugging
     console.log('Received transfer request:', req.body);
 
     const { senderEmail, receiverEmail, amount, note } = req.body;
@@ -623,6 +623,7 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
 
     // Check if all required fields are provided
     if (!senderEmail || !receiverEmail || !amount) {
+      console.log('Missing fields:', { senderEmail, receiverEmail, amount });
       return res.status(400).json({
         error: "Invalid input",
         message: "Missing required fields: senderEmail, receiverEmail, or amount"
@@ -631,6 +632,7 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
 
     // Check if sender's email matches the authenticated user's email
     if (senderEmail !== sender.email) {
+      console.log('Email mismatch:', { expected: sender.email, received: senderEmail });
       return res.status(403).json({
         error: "Invalid input",
         message: "Sender email does not match authenticated user"
@@ -640,6 +642,7 @@ app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, n
     // Fetch the receiver's details
     const receiver = await storage.getUserByEmail(receiverEmail);
     if (!receiver) {
+      console.log('Receiver not found:', receiverEmail);
       return res.status(404).json({
         error: "Receiver not found",
         message: "Receiver email not found in our records"
