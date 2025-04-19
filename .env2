@@ -1,17 +1,14 @@
 export SESSION_SECRET="this-is-a-very-secure-secret-key-for-testing"
 export EMAIL_USER="authotp247@gmail.com"
 export EMAIL_PASS="yrbh sahp dqup yaoe"
-<<<<<<< HEAD
-export APP_URL="https://eae5cc41-febf-4234-95b0-fb85f9a613c6-00-hv2jl34a30ud.picard.replit.dev"
+export APP_URL="https://coine.onrender.com/"
 
+SESSION_SECRET="1FdUBWaFPkkWRF2m0xISSZTQwLiqbVpcsf9ArWTFTwjPrxTkJxU+r59Hj0gS//ZU6Yt+SS99ltYtQDxkjg2V1g=="
+DATABASE_URL="postgresql://Data_owner:npg_5xZEuWSQKy9v@ep-crimson-glade-a5wusefp-pooler.us-east-2.aws.neon.tech/Data?sslmode=require"
+PGDATABASE="neondb"
+PGHOST="ep-orange-haze-a6q9fdpo.us-west-2.aws.neon.tech"
+PGPORT="5432"
+PGUSER="Data_owner"
+PGPASSWORD="npg_5xZEuWSQKy9v"
+api="seium1234554321"
 
- SESSION_SECRET="this-is-a-very-secure-secret-key-for-testing"
- EMAIL_USER="authotp247@gmail.com"
- EMAIL_PASS="yrbh sahp dqup yaoe"
- APP_URL="https://coine.onrender.com/"
-=======
-export APP_URL=" APP_URL="https://coine.onrender.com/"
-
-
-
->>>>>>> d0709dc0a64f17b2fde4bd964510368dfba11c09
