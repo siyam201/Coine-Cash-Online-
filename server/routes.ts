@@ -613,120 +613,37 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
   }
 });
 
-// Add this at the top with other imports
-import { z } from 'zod';
-
-// Define unified transfer schema
-const transferSchema = z.object({
-  senderEmail: z.string().email(),
-  receiverEmail: z.string().email(),
-  amount: z.number().positive().max(1000000),
-  note: z.string().optional(),
-  password: z.string().optional() // Required for authenticated transfers
-});
-
-// Unified Transfer Endpoint
-app.post("/api/transfer", async (req: Request, res: Response, next: NextFunction) => {
+app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Parse and validate input
-    const data = transferSchema.parse(req.body);
-    
-    // Determine authentication method
-    const isApiKeyRequest = req.headers.authorization?.startsWith('Bearer ');
-    const isAuthenticatedRequest = req.isAuthenticated();
+    const { emailSearch } = req.query;
 
-    // Get sender based on auth method
-    let sender;
-    if (isApiKeyRequest) {
-      // API Key auth - validate via middleware
-      await validateApiKey(req, res, () => {});
-      sender = req.user;
-    } else if (isAuthenticatedRequest) {
-      // Session auth
-      sender = req.user;
-      // Verify password if provided
-      if (data.password && !await comparePasswords(data.password, sender.password)) {
-        return res.status(401).json({ error: "Invalid password" });
-      }
-    } else {
-      return res.status(401).json({ error: "Authentication required" });
-    }
+    // যদি ইমেল অনুসন্ধান করা হয়
+    if (emailSearch && typeof emailSearch === "string") {
+      const enrichedTransactions = await storage.getUserTransactionsWithEmails(req.user.id);
 
-    // Common validation
-    if (sender.email.toLowerCase() !== data.senderEmail.toLowerCase()) {
-      return res.status(403).json({ error: "Sender email mismatch" });
-    }
-
-    const receiver = await storage.getUserByEmail(data.receiverEmail.toLowerCase());
-    if (!receiver?.isVerified) {
-      return res.status(404).json({ error: "Receiver not found or unverified" });
-    }
-
-    if (sender.id === receiver.id) {
-      return res.status(400).json({ error: "Cannot transfer to yourself" });
-    }
-
-    if (sender.balance < data.amount) {
-      return res.status(400).json({ 
-        error: "Insufficient balance",
-        currentBalance: sender.balance
-      });
-    }
-
-    // Start transaction
-    await storage.beginTransaction();
-
-    try {
-      // Update balances
-      await storage.updateUser(sender.id, { balance: sender.balance - data.amount });
-      await storage.updateUser(receiver.id, { balance: receiver.balance + data.amount });
-
-      // Record transaction
-      const transaction = await storage.createTransaction({
-        amount: data.amount,
-        senderId: sender.id,
-        receiverId: receiver.id,
-        note: data.note || null,
-        status: "completed"
+      // ইমেল অনুসন্ধান অনুসারে ফিল্টার করুন
+      const filteredTransactions = enrichedTransactions.filter(transaction => {
+        const searchLower = emailSearch.toLowerCase();
+        return (
+          (transaction.senderEmail && transaction.senderEmail.toLowerCase().includes(searchLower)) ||
+          (transaction.receiverEmail && transaction.receiverEmail.toLowerCase().includes(searchLower))
+        );
       });
 
-      // Commit transaction
-      await storage.commitTransaction();
-
-      // Send notifications (async)
-      sendTransactionNotificationEmail(sender, receiver, data.amount).catch(console.error);
-      
-      if (sender.balance - data.amount < 1000) {
-        sendLowBalanceWarningEmail({ 
-          ...sender, 
-          balance: sender.balance - data.amount 
-        }).catch(console.error);
-      }
-
-      res.status(200).json({
-        success: true,
-        transaction,
-        newBalance: sender.balance - data.amount
-      });
-
-    } catch (error) {
-      await storage.rollbackTransaction();
-      throw error;
+      return res.json(filteredTransactions);
     }
 
+    // সাধারণ ট্রানজেকশন ইতিহাস
+    const transactions = await storage.getUserTransactions(req.user.id);
+    res.json(transactions);
   } catch (error) {
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({
-        error: "Validation error",
-        details: error.errors.map(e => ({
-          field: e.path.join('.'),
-          message: e.message
-        }))
-      });
-    }
     next(error);
   }
+
+
+
 });
+
   
   // Admin routes
   app.get("/api/admin/users", isAdmin, async (req, res, next) => {
