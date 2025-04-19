@@ -613,29 +613,34 @@ app.post("/api/user/transfer", isAuthenticated, async (req: Request, res: Respon
   }
 });
 
-app.get("/api/transactions", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
+app.post("/api/transfer", isAuthenticated, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { emailSearch } = req.query;
+    const { receiverEmail, amount, password, note } = req.body;
+    const sender = req.user;
 
-    // যদি ইমেল অনুসন্ধান করা হয়
-    if (emailSearch && typeof emailSearch === "string") {
-      const enrichedTransactions = await storage.getUserTransactionsWithEmails(req.user.id);
+    // ... রিসিভার চেক, ব্যালেন্স চেক, পাসওয়ার্ড চেক ইত্যাদি
 
-      // ইমেল অনুসন্ধান অনুসারে ফিল্টার করুন
-      const filteredTransactions = enrichedTransactions.filter(transaction => {
-        const searchLower = emailSearch.toLowerCase();
-        return (
-          (transaction.senderEmail && transaction.senderEmail.toLowerCase().includes(searchLower)) ||
-          (transaction.receiverEmail && transaction.receiverEmail.toLowerCase().includes(searchLower))
-        );
-      });
+    // ট্রানজেকশন তৈরি
+    const transaction = await storage.createTransaction({
+      amount,
+      senderId: sender.id,
+      receiverId: receiver.id,
+      note: note || null
+    });
 
-      return res.json(filteredTransactions);
+    // ব্যালেন্স আপডেট
+    await storage.updateUser(sender.id, { balance: sender.balance - amount });
+    await storage.updateUser(receiver.id, { balance: receiver.balance + amount });
+
+    // ট্রানজেকশন সফল হলে ইমেইল পাঠাও
+    await sendTransactionNotificationEmail(sender, receiver, amount);
+
+    // সতর্কতা ইমেইল (যদি দরকার হয়)
+    if (sender.balance - amount < 1000) {
+      await sendLowBalanceWarningEmail({ ...sender, balance: sender.balance - amount });
     }
 
-    // সাধারণ ট্রানজেকশন ইতিহাস
-    const transactions = await storage.getUserTransactions(req.user.id);
-    res.json(transactions);
+    res.status(201).json({ message: "Transfer successful", transaction });
   } catch (error) {
     next(error);
   }
